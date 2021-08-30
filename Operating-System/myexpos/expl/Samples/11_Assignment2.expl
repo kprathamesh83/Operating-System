@@ -1,0 +1,23 @@
+type
+Student
+{
+    str name;
+    int marks;
+}
+endtype
+
+int main(){
+  decl
+     Student s;
+     int temp;
+  enddecl
+  begin
+     temp = initialize();
+     s = alloc();
+     s.name = "John";
+     s.marks = 89;
+     write(s.name);
+     write(s.marks);   
+     return 0;
+  end
+}       
