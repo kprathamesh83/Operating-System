@@ -1,0 +1,17 @@
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1]*16) + 13] = SP;
+SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1]*16) + 11]*512 - 1;
+backup;
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1]*16) + 4] = READY;
+alias i R3;
+i = 0;
+while(i<MAX_PROC_NUM)do
+       if([PROCESS_TABLE + i*16 + 4] != TERMINATED)then
+                  [PROCESS_TABLE + i*16 + 0] = [PROCESS_TABLE + i*16 + 0] + 1;
+       endif;
+       i = i + 1;
+endwhile;
+call CONTEXT_SWITCH;
+restore;
+SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1]*16) + 13];                      
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 9] = 0;
+ireturn;
