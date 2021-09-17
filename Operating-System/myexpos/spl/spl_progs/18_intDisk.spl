@@ -1,0 +1,23 @@
+breakpoint;
+alias currentPID R4;
+alias processTableEntry R5;
+alias i R6;
+
+currentPID = [SYSTEM_STATUS_TABLE + 1];
+processTableEntry = PROCESS_TABLE + currentPID*16;
+
+[processTableEntry + 13] = SP;
+SP = [processTableEntry + 11]*512 - 1;
+backup;
+print("Disk int");
+[DISK_STATUS_TABLE + 0] = 0;
+i = 0;
+while(i<MAX_PROC_NUM)do
+	if([PROCESS_TABLE + i*16 + 4] == WAIT_DISK)then
+		 [PROCESS_TABLE + i*16 + 4] = READY;
+	endif;
+	i = i + 1;
+endwhile;
+restore;
+SP = [processTableEntry + 13];
+ireturn;		 	

@@ -1,0 +1,56 @@
+//device manager module
+alias functionNum R1;
+alias currentPID R2;
+alias word R3;
+if(functionNum == TERMINAL_WRITE)then
+        multipush(R1, R2, R3);
+        R1 = 8;
+        R2 = currentPID;
+        call MOD_0;
+        multipop(R1, R2, R3);
+        print word;
+        multipush(R1, R2, R3);
+        R1 = 9;
+        R2 = currentPID;
+        call MOD_0;
+        multipop(R1,R2,R3);
+        return;
+endif;
+
+if(functionNum == TERMINAL_READ)then
+        backup;
+        R1 = 8;
+        R2 = currentPID;
+        call MOD_0;
+        restore;
+        read;
+        [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1]*16) + 4] = WAIT_TERMINAL;
+        backup;
+        call MOD_5;
+        restore;
+        [[PTBR + 2*(R3/512)]*512 + ((R3)%512)] = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 8];
+        return;
+endif;
+
+if(functionNum == DISK_LOAD)then
+        print("loadding disk");
+        alias pageNum R3;
+        alias blockNum R4;
+        backup;
+        R1 = ACQUIRE_DISK;
+        R2 = currentPID;
+        call MOD_0;
+        restore;
+        print("Disk loaded");
+        [DISK_STATUS_TABLE + 1] = 0;
+        [DISK_STATUS_TABLE + 2] = pageNum;
+        [DISK_STATUS_TABLE + 3] = blockNum;
+        load(pageNum, blockNum);
+        [PROCESS_TABLE + currentPID*16 + 4] = WAIT_DISK;
+        backup;
+        call CONTEXT_SWITCH;
+        restore;
+        return;
+ endif;
+        
+         
