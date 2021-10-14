@@ -1,0 +1,82 @@
+//SemLock and SemUnLock
+
+
+alias syscallNum R3;
+alias userSP R4;
+userSP = SP;
+[PROCESS_TABLE+[SYSTEM_STATUS_TABLE+1]*16+13] = SP;	
+syscallNum = [[PTBR + 2*((userSP-5)/512)]*512 + (userSP-5)%512];
+SP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1]*16 + 11]*512-1;
+
+alias semID R6;
+semID = [[PTBR+2*((userSP-4)/512)]*512 + (userSP-4)%512];
+alias user_area_page R7;
+user_area_page = [PROCESS_TABLE+[SYSTEM_STATUS_TABLE+1]*16+11];
+
+if(syscallNum == 19)then
+	[PROCESS_TABLE+[SYSTEM_STATUS_TABLE+1]*16 + 9] = 19;
+		if(semID<0 || semID>7 || ([user_area_page*512 + 496 + semID*2] != 1))then
+			[[PTBR+2*((userSP-1)/512)]*512 + (userSP-1)%512] = -1;
+		[PROCESS_TABLE+[SYSTEM_STATUS_TABLE+1]*16 + 9] = 0;
+		SP = [PROCESS_TABLE+[SYSTEM_STATUS_TABLE+1]*16+13];
+		ireturn;		
+	endif;
+	alias sem_table_idx R8;
+	sem_table_idx = [user_area_page*512 + 496 + semID*2 + 1];
+
+	while([SEMAPHORE_TABLE + sem_table_idx*4] != -1) do  
+		[PROCESS_TABLE+[SYSTEM_STATUS_TABLE+1]*16 + 4] = WAIT_SEMAPHORE;
+		[PROCESS_TABLE+[SYSTEM_STATUS_TABLE+1]*16 + 5] = sem_table_idx;
+		backup;
+		call CONTEXT_SWITCH;	
+		restore;
+	endwhile;
+	
+	[SEMAPHORE_TABLE + sem_table_idx*4] = [SYSTEM_STATUS_TABLE+1];
+	[[PTBR+2*((userSP-1)/512)]*512 + (userSP-1)%512] = 0;
+	[PROCESS_TABLE+[SYSTEM_STATUS_TABLE+1]*16 + 9] = 0;
+	SP = [PROCESS_TABLE+[SYSTEM_STATUS_TABLE+1]*16+13];
+	ireturn;
+
+endif;
+
+if(syscallNum == 20) then
+	[PROCESS_TABLE+[SYSTEM_STATUS_TABLE+1]*16 + 9] = 20;	//set the mode flag
+
+	//check for invalid semaphore ID
+	if(semID<0 || semID>7 || ([user_area_page*512 + 496 + semID*2] != SEMAPHORE)) then
+		[[PTBR+2*((userSP-1)/512)]*512 + (userSP-1)%512] = -1;	//return -1
+		[PROCESS_TABLE+[SYSTEM_STATUS_TABLE+1]*16 + 9] = 0;
+		SP = [PROCESS_TABLE+[SYSTEM_STATUS_TABLE+1]*16+13];
+		ireturn;		
+	endif;
+
+	//check if the semaphore is locked by the calling process
+	alias sem_table_idx R8;
+	sem_table_idx = [user_area_page*512 + 496 + semID*2 + 1];
+
+	if([SEMAPHORE_TABLE + 4*sem_table_idx] != -1) then
+		if([SEMAPHORE_TABLE + 4*sem_table_idx] != [SYSTEM_STATUS_TABLE+1]) then
+			[[PTBR+2*((userSP-1)/512)]*512 + (userSP-1)%512] = -2;
+			[PROCESS_TABLE+[SYSTEM_STATUS_TABLE+1]*16 + 9] = 0;
+			SP = [PROCESS_TABLE+[SYSTEM_STATUS_TABLE+1]*16+13];
+			ireturn;
+		endif;	
+		[SEMAPHORE_TABLE + 4*sem_table_idx] = -1; 
+		alias i R9;
+		i = 0;
+		while(i<16) do 
+			if([PROCESS_TABLE+i*16+4] == WAIT_SEMAPHORE && [PROCESS_TABLE+i*16+5] == sem_table_idx) then
+				[PROCESS_TABLE+i*16+4] = READY;
+			endif;
+			i = i + 1; 
+		endwhile;
+	endif;
+	[[PTBR+2*((userSP-1)/512)]*512 + (userSP-1)%512] = 0;
+	[PROCESS_TABLE+[SYSTEM_STATUS_TABLE+1]*16 + 9] = 0;
+	SP = [PROCESS_TABLE+[SYSTEM_STATUS_TABLE+1]*16+13];
+	ireturn;
+endif;
+
+SP = [PROCESS_TABLE+[SYSTEM_STATUS_TABLE+1]*16+13];
+ireturn;
