@@ -1,0 +1,146 @@
+//resource manager module
+
+alias functionNum R1;
+if (functionNum == 1) then 				//acquire buffer
+	alias buffernumber R2;
+	alias currentPID R3;
+	while ([BUFFER_TABLE + 4 * buffernumber + 2] != -1) do
+		[PROCESS_TABLE + (currentPID * 16) + 4] = WAIT_BUFFER;
+		[PROCESS_TABLE + (currentPID * 16) + 5] = buffernumber;
+		multipush(R1,R2,R3);
+		call MOD_5;
+		multipop(R1,R2,R3);
+	endwhile;
+	[BUFFER_TABLE + 4 * buffernumber + 2] = currentPID;
+	return;
+endif;
+if (functionNum == 2) then 				//release buffer
+	alias buffernumber R2;
+	alias currentPID R3;
+	if ([BUFFER_TABLE + 4 * buffernumber + 2] != currentPID) then
+		R0 = -1;
+		return;
+	endif;
+	[BUFFER_TABLE + 4 * buffernumber + 2] = -1;
+	alias counter R4;
+	counter = 1;
+	while (counter < 16) do
+		if ([PROCESS_TABLE + (counter * 16) + 4] == WAIT_BUFFER && [PROCESS_TABLE + (counter * 16) + 5] == buffernumber) then
+			[PROCESS_TABLE + (counter * 16) + 4] = READY;
+			[PROCESS_TABLE + (counter * 16) + 5] = 0;
+		endif;
+		counter = counter + 1;
+	endwhile;
+	R0 = 0;
+	return;
+endif;
+if (functionNum == 3) then
+	alias currentPID R2;
+	while ([DISK_STATUS_TABLE] == 1) do
+		[PROCESS_TABLE + (currentPID * 16) + 4] = WAIT_DISK;
+		multipush(R1,R2);
+		call MOD_5;
+		multipop(R1,R2);
+	endwhile;
+	[DISK_STATUS_TABLE] = 1;
+	[DISK_STATUS_TABLE+4] = currentPID;
+	return;
+endif;
+if (functionNum == 4) then						//acquire inode
+	alias inodeindex R2;
+	alias currentPID R3;
+	while ([FILE_STATUS_TABLE + 4 * inodeindex] != -1) do
+		[PROCESS_TABLE + (currentPID * 16) + 4] = WAIT_FILE;
+		[PROCESS_TABLE + (currentPID * 16) + 5] = inodeindex;
+		multipush(R1,R2,R3);
+		call MOD_5;
+		multipop(R1,R2,R3);
+	endwhile;
+	if ([INODE_TABLE + 16 * inodeindex + 1] == -1) then
+		R0 = -1;
+		return;
+	endif;
+	[FILE_STATUS_TABLE + 4 * inodeindex] = currentPID;
+	R0 = 0;
+	return;
+endif;
+if (functionNum == 5) then						//release inode
+	alias inodeindex R2;
+	alias currentPID R3;
+	if (currentPID != [FILE_STATUS_TABLE + 4 * inodeindex]) then
+		R0 = -1;
+		return;
+	endif;
+	[FILE_STATUS_TABLE + 4 * inodeindex] = -1;
+	alias counter R4;
+	counter = 1;
+	while (counter < 16) do
+		if([PROCESS_TABLE + (currentPID * 16) + 4] == WAIT_FILE &&
+		[PROCESS_TABLE + (currentPID * 16) + 5] == inodeindex) then
+			[PROCESS_TABLE + (currentPID * 16) + 4] = READY;
+			[PROCESS_TABLE + (currentPID * 16) + 5] = 0;
+		endif;
+		counter = counter + 1;
+	endwhile;
+	R0 = 0;
+	return;
+endif;
+if (functionNum == 6) then						//acquire Semaphore
+	alias currentPID R2;
+	alias counter R3;
+	alias flag R0;
+	flag = -1;
+	counter = 0;
+	while (counter < 32) do
+		if([SEMAPHORE_TABLE + counter * 4 + 1] == 0) then
+			flag = counter;
+			[SEMAPHORE_TABLE + counter * 4] = -1;
+			[SEMAPHORE_TABLE + counter * 4 + 1] = 1; 			//acquiring
+			break;
+		endif;
+		counter = counter + 1;
+	endwhile;
+	return;				//flag will be returned
+endif;
+if (functionNum == 7) then						//release Semaphore
+	alias sindex R2;
+	alias pid R3;
+	if([SEMAPHORE_TABLE + sindex * 4] == pid) then
+		[SEMAPHORE_TABLE + sindex * 4] = -1;
+		alias counter R4;
+		counter = 1;
+		while (counter < 16) do
+			if([PROCESS_TABLE + (counter * 16) + 4] == WAIT_SEMAPHORE && [PROCESS_TABLE + (counter * 16) + 5] == sindex) then
+				[PROCESS_TABLE + (counter * 16) + 4] = READY;
+				[PROCESS_TABLE + (counter * 16) + 5] = 0;
+			endif;
+			counter = counter + 1;
+		endwhile;
+	endif;
+	[SEMAPHORE_TABLE + sindex * 4 + 1] = [SEMAPHORE_TABLE + sindex * 4 + 1] - 1;
+	return;
+endif;
+if (functionNum == 8) then
+	alias currentPID R2;
+	if ([TERMINAL_STATUS_TABLE] == 1) then
+		[PROCESS_TABLE + currentPID * 16 + 4] = WAIT_TERMINAL;
+		multipush(R1,R2);
+		call MOD_5;
+		multipop(R1,R2);
+	endif;
+	[TERMINAL_STATUS_TABLE] = 1;
+	[TERMINAL_STATUS_TABLE+1] = currentPID;
+	return;
+endif;
+if (functionNum == 9) then
+	alias currentPID R2;
+	alias r R0;
+	if (currentPID != [TERMINAL_STATUS_TABLE+1]) then
+		r = -1;
+		return;
+	endif;
+	[TERMINAL_STATUS_TABLE] = 0;
+	[PROCESS_TABLE + currentPID * 16 + 4] = READY;
+	r = 0;
+	return;
+endif;

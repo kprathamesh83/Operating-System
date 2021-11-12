@@ -1,0 +1,66 @@
+//device manager module
+
+alias functionNum R1;
+alias currentPID R2;
+if (functionNum == 1) then			//Disk Store			
+	alias PageNum R3;
+	alias BlockNum R4;
+	multipush(R1,R2,R3,R4);
+	R1 = 3;
+	call MOD_0;							//acquire
+	multipop(R1,R2,R3,R4);
+	[DISK_STATUS_TABLE+1] = 1;			//Store
+	store(PageNum,BlockNum);
+	[PROCESS_TABLE + (currentPID * 16) + 4] = WAIT_DISK;
+	call MOD_5;
+	return;
+endif;
+if (functionNum == 2) then			//Disk Load			
+	alias PageNum R3;
+	alias BlockNum R4;
+	multipush(R1,R2,R3,R4);
+	R1 = 3;
+	call MOD_0;							//acquire
+	multipop(R1,R2,R3,R4);
+	[DISK_STATUS_TABLE+1] = 0;			//load
+	load(PageNum,BlockNum);
+	[PROCESS_TABLE + (currentPID * 16) + 4] = WAIT_DISK;
+	call MOD_5;
+	return;
+endif;
+if (functionNum == 3) then			//Write
+	multipush(R1,R2);
+	functionNum = 8;
+	currentPID = [SYSTEM_STATUS_TABLE + 1];
+	call MOD_0;
+	multipop(R1,R2);
+	alias word R3;
+	print word;
+	multipush(R1,R2,R3);
+	functionNum = 9;
+	call MOD_0;
+	//save R0 if required
+	multipop(R1,R2,R3);
+	return;
+endif;
+if (functionNum == 4) then				//Read
+	multipush(R1,R2,R3);
+	R1 = 8;
+	R2 = [SYSTEM_STATUS_TABLE + 1];
+	call MOD_0;
+	multipop(R1,R2,R3);
+	read;
+	[PROCESS_TABLE + currentPID * 16 + 4] = WAIT_TERMINAL;
+	multipush(R1,R2,R3);
+	call MOD_5;
+	multipop(R1,R2,R3);
+	alias logicaladd R3;
+	alias offset R4;
+	alias lpage R5;
+	offset = logicaladd % 512;
+	lpage = logicaladd / 512;
+	[([PTBR + 2*lpage])*512 + offset] = [PROCESS_TABLE + currentPID * 16 + 8];
+	return;
+endif;
+return;
+        

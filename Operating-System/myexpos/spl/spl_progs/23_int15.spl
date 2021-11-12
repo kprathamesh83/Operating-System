@@ -1,0 +1,37 @@
+//Shutdown syscall
+
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 13] = SP;
+alias userSP R0;
+userSP=SP;
+SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 11]*512 - 1;
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 9] = 21;
+if ([SYSTEM_STATUS_TABLE + 1] != 1 || [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 3] != 1) then			//given || if not root
+	alias physicalAddrRetVal R1;
+	physicalAddrRetVal = ([PTBR + 2 * ((userSP - 1) / 512)] * 512) + ((userSP - 1) % 512);
+	[physicalAddrRetVal] = -1;
+	[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 9] = 0;
+	SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 13];
+	ireturn;
+endif;
+
+R1 = 1;
+R2 = [SYSTEM_STATUS_TABLE + 1];
+R3 = 59;									//Inode + user
+R4 = 3;
+call MOD_4;
+R1 = 1;
+R2 = [SYSTEM_STATUS_TABLE + 1];
+R3 = 60;									//Inode + user
+R4 = 4;
+call MOD_4;
+R1 = 1;
+R2 = [SYSTEM_STATUS_TABLE + 1];
+R3 = 61;									//diskfree list
+R4 = 2;
+call MOD_4;
+R1 = 1;
+R2 = [SYSTEM_STATUS_TABLE + 1];
+R3 = 62;									//root file
+R4 = 5;
+call MOD_4;
+halt;

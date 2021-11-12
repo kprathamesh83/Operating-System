@@ -1,0 +1,138 @@
+//file manager module
+
+alias functionNum R1;
+if (functionNum == 1 || functionNum == 2) then				//buffer read and buffer write
+	alias diskblock R2;
+	alias offset R3;
+	alias word R4;
+	alias bufferpage R5;
+	bufferpage = diskblock % 4;
+	multipush(R1,R2,R3,R4,R5);
+	R1 = 1;
+	R2 = R5;
+	R3 = [SYSTEM_STATUS_TABLE + 1];
+	call MOD_0;							//acc buffer
+	multipop(R1,R2,R3,R4,R5);
+	if ([BUFFER_TABLE + 4 * bufferpage] != diskblock) then
+		if ([BUFFER_TABLE + 4 * bufferpage + 1] == 1) then		//dirty
+			multipush(R1,R2,R3,R4,R5);
+			R1 = 1;
+			R2 = [SYSTEM_STATUS_TABLE + 1];
+			R3 = 71 + bufferpage;
+			R4 = [BUFFER_TABLE + 4 * bufferpage];
+			call MOD_4;
+			multipop(R1,R2,R3,R4,R5);
+			[BUFFER_TABLE + 4 * bufferpage + 1] = 0;
+		endif;
+		multipush(R1,R2,R3,R4,R5);
+		R1 = 2;
+		R4 = diskblock;
+		R2 = [SYSTEM_STATUS_TABLE + 1];
+		R3 = 71 + bufferpage;
+		call MOD_4;
+		multipop(R1,R2,R3,R4,R5);
+		[BUFFER_TABLE + 4 * bufferpage] = diskblock;
+	endif;
+	if (functionNum == 2) then
+		[([PTBR + 2*(word/512)])*512 + (word%512)] = [(71 + bufferpage) * 512 + offset];
+	else
+		[(71 + bufferpage) * 512 + offset] = word;
+		[BUFFER_TABLE + 4 * bufferpage + 1] = 1;
+	endif;
+	multipush(R1,R2,R3,R4,R5);
+	R1 = 2;
+	R2 = R5;
+	R3 = [SYSTEM_STATUS_TABLE + 1];
+	call MOD_0;
+	multipop(R1,R2,R3,R4,R5);
+	return;
+endif;
+if (functionNum == 3) then				//open
+	alias filename R2;
+	alias fileindex R3;
+	alias flag R4;
+	flag = 0;
+	fileindex = 0;				//inode table page 59
+	while (fileindex < 60) do
+		if ([INODE_TABLE + 16 * fileindex + 1] == filename) then
+			if ([INODE_TABLE + 16 * fileindex] != EXEC) then
+				flag = 1;
+				break;
+			endif;
+		endif;
+		fileindex = fileindex + 1;
+	endwhile;
+	if (flag != 1) then
+		R0 = -1;
+		return;
+	endif;
+	multipush(R1,R2,R3,R4);
+	R1 = 4;
+	R2 = fileindex;
+	R3 = [SYSTEM_STATUS_TABLE + 1];
+	call MOD_0;										//acquire inode
+	multipop(R1,R2,R3,R4);
+	if (R0 != 0) then
+		return;
+	endif;
+	alias counter R5;
+	flag = 0;
+	counter = 0;
+	while (counter < MAX_OPENFILE_NUM) do				//32
+		if ([OPEN_FILE_TABLE + 4 * counter] == -1) then
+			flag = 1;
+			break;
+		endif;
+		counter = counter + 1;
+	endwhile;
+	if (flag != 1) then
+		multipush(R1,R2,R3,R4);
+		R1 = 5;
+		R2 = fileindex;
+		R3 = [SYSTEM_STATUS_TABLE + 1];
+		call MOD_0;							//release inode
+		multipop(R1,R2,R3,R4);
+		R0 = -2;
+		return;
+	endif;
+	if (filename == "root") then
+		[OPEN_FILE_TABLE + 4 * counter] = INODE_ROOT;
+	else
+		if ([FILE_STATUS_TABLE + 4 * fileindex + 1] == -1) then
+			[FILE_STATUS_TABLE + 4 * fileindex + 1] = 1;
+		else
+			[FILE_STATUS_TABLE + 4 * fileindex + 1] = [FILE_STATUS_TABLE + 4 * fileindex + 1] + 1;
+		endif;
+		[OPEN_FILE_TABLE + 4 * counter] = fileindex;
+	endif;
+	[OPEN_FILE_TABLE + 4 * counter + 1] = 1;
+	[OPEN_FILE_TABLE + 4 * counter + 2] = 0;
+	multipush(R1,R2,R3,R4,R5);
+	R1 = 5;
+	R2 = fileindex;
+	R3 = [SYSTEM_STATUS_TABLE + 1];
+	call MOD_0;							//release inode
+	multipop(R1,R2,R3,R4,R5);
+	R0 = counter;
+	return;
+endif;
+if (functionNum == 4) then				//close
+	alias filetableindex R2;
+	alias inodeindex R3;
+	inodeindex = [OPEN_FILE_TABLE + 4 * filetableindex];
+	[OPEN_FILE_TABLE + 4 * filetableindex + 1] = [OPEN_FILE_TABLE + 4 * filetableindex + 1] - 1;
+	if ([OPEN_FILE_TABLE + 4 * filetableindex + 1] == 0) then
+		if ([OPEN_FILE_TABLE + 4 * filetableindex] != INODE_ROOT) then
+			alias counter R4;
+			counter = [OPEN_FILE_TABLE + 4 * filetableindex];
+			[FILE_STATUS_TABLE + 4 * counter + 1] = [FILE_STATUS_TABLE + 4 * counter + 1] - 1;
+			if ([FILE_STATUS_TABLE + 4 * counter + 1] == 0) then
+				[FILE_STATUS_TABLE + 4 * counter + 1] = -1;
+			endif;
+		endif;
+		[OPEN_FILE_TABLE + 4 * filetableindex + 0] = -1;
+		[OPEN_FILE_TABLE + 4 * filetableindex + 1] = -1;
+		[OPEN_FILE_TABLE + 4 * filetableindex + 2] = -1;
+	endif;
+	return;
+endif;

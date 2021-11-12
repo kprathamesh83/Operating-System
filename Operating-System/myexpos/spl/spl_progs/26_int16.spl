@@ -1,0 +1,146 @@
+//Newusr, Remusr, Setpwd, Getuname and Getuid
+
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 13] = SP;
+alias userSP R0;
+userSP=SP;
+SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 11]*512 - 1;
+alias PhysicalPageNum R2;							//Extracting arguement 
+alias offset R3;
+alias CallNumAdd R4;
+PhysicalPageNum = [PTBR + 2 * ((userSP - 5)/ 512)];
+offset = (userSP - 5) % 512;
+CallNumAdd = (PhysicalPageNum * 512) + offset;
+alias SyscallNumber R5;
+SyscallNumber = [CallNumAdd];
+alias username R1;
+username = [([PTBR + 2 * ((userSP - 4) / 512)] * 512) + ((userSP - 4) % 512)];
+alias password R2;
+password = [([PTBR + 2 * ((userSP - 3) / 512)] * 512) + ((userSP - 3) % 512)];
+encrypt password;
+alias returnaddress R15;
+returnaddress = ([PTBR + 2 * ((userSP - 1) / 512)] * 512) + ((userSP - 1) % 512);
+if (SyscallNumber == 22) then				//Newusr
+	[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 9] = 22;
+	if ([SYSTEM_STATUS_TABLE + 1] != 2 || [SYSTEM_STATUS_TABLE] != 1) then
+		[returnaddress] = -2;
+		goto lb;
+	endif;
+	alias counter R3;
+	alias freeentry R4;
+	alias flag R5;
+	freeentry = -1;
+	flag = -1;
+	counter = 0;
+	while (counter < MAX_USER_NUM) do
+		if (username == [USER_TABLE + 2*counter] && flag == -1) then
+			flag = counter;
+		endif;
+		if ([USER_TABLE + 2*counter] == -1 && freeentry == -1) then
+			freeentry = counter;
+		endif;
+		counter = counter + 1;
+	endwhile;
+	if (flag != -1) then
+		[returnaddress] = -1;
+		goto lb;
+	endif;
+	if (freeentry == -1) then
+		[returnaddress] = -3;
+		goto lb;
+	endif;
+	[USER_TABLE + 2*freeentry] = username;
+	[USER_TABLE + 2*freeentry + 1] = password;
+	[returnaddress] = 0;
+endif;
+if (SyscallNumber == 23) then				//Remusr
+	[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 9] = 23;
+	if ([SYSTEM_STATUS_TABLE + 1] != 2 || [SYSTEM_STATUS_TABLE] != 1 || username == "root" || username == "kernel") then
+		[returnaddress] = -2;
+		goto lb;
+	endif;
+	alias counter R3;
+	alias flag R4;
+	flag = -1;
+	counter = 0;
+	while (counter < MAX_USER_NUM) do
+		if (username == [USER_TABLE + 2*counter]) then
+			flag = 1;
+			break;
+		endif;
+		counter = counter + 1;
+	endwhile;
+	if (flag != 1) then
+		[returnaddress] = -1;
+		goto lb;
+	endif;
+	alias iter R4;
+	iter = 0;
+	while (iter < MAX_FILE_NUM) do
+		if([ROOT_FILE + 8 * iter] != -1 &&[ROOT_FILE + 8 * iter + 3] == counter) then
+			[returnaddress] = -3;
+			goto lb;
+		endif;
+		iter = iter + 1;
+	endwhile;
+	[USER_TABLE + 2*counter] = -1;
+	[USER_TABLE + 2*counter + 1] = -1;
+	[returnaddress] = 0;
+endif;
+if (SyscallNumber == 24) then				//Setpwd
+	[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 9] = 24;
+	if ([SYSTEM_STATUS_TABLE + 1] != 2) then
+		[returnaddress] = -1;
+		goto lb;
+	endif;
+	alias counter R3;
+	alias flag R4;
+	counter = 0;
+	flag = -1;
+	while (counter < MAX_USER_NUM) do
+		if (username == [USER_TABLE + 2*counter]) then
+			flag = 1;
+			break;
+		endif;
+		counter = counter + 1;
+	endwhile;
+	if (flag == -1) then
+		[returnaddress] = -2;
+	endif;
+	if ([SYSTEM_STATUS_TABLE] != counter) then
+		if ([SYSTEM_STATUS_TABLE] != 1) then		//not root
+			[returnaddress] = -1;
+			goto lb;
+		endif;
+	endif;
+	[USER_TABLE + 2*counter + 1] = password;
+endif;
+if (SyscallNumber == 25) then				//Getuname
+	[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 9] = 25;
+	alias userid R1;
+	if (userid < 0 || userid > 15) then
+		[returnaddress] = -1;
+		goto lb;
+	endif;
+	//if ([USER_TABLE + 2 * userid] == -1) then
+	//	[returnaddress] = -1;
+	//	goto lb;
+	//endif;
+	[returnaddress] = [USER_TABLE + 2 * userid];			//-1 will be taken care by table
+endif;
+if (SyscallNumber == 26) then				//Getuid
+	[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 9] = 26;
+	alias counter R3;
+	counter = 0;
+	while (counter < MAX_USER_NUM) do
+		if (username == [USER_TABLE + 2*counter]) then
+			[returnaddress] = counter;
+			goto lb;
+		endif;
+		counter = counter + 1;
+	endwhile;
+	[returnaddress] = -1;
+endif;
+lb:
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 9] = 0;
+SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 13];
+ireturn;

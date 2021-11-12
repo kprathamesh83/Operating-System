@@ -1,0 +1,32 @@
+//logout
+
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 13] = SP;
+breakpoint;
+alias userSP R0;
+userSP = SP;
+SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 11]*512 - 1;
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 9] = 28;
+if ([SYSTEM_STATUS_TABLE + 1] != 2) then
+	alias physicalAddrRetVal R1;
+	physicalAddrRetVal = ([PTBR + 2 * ((userSP - 1) / 512)] * 512) + ((userSP - 1) % 512);
+	[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 9] = 0;
+	SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 13];
+	[physicalAddrRetVal] = -1;
+	ireturn;
+endif;
+backup;
+R1 = 5;
+R2 = 2;
+breakpoint;
+//leave shell process
+call MOD_1;	//kill all
+restore;
+[PROCESS_TABLE + (2 * 16) + 4] = TERMINATED;
+alias ptbr R3;
+ptbr = [PROCESS_TABLE + (2 * 16) + 14];
+[[ptbr+16]*512] = [[ptbr+8]*512+1];				//ip of shell process
+[PROCESS_TABLE + (2 * 16) + 13] = 8 * 512;
+[PROCESS_TABLE + (1 * 16) + 4] = READY;
+[SYSTEM_STATUS_TABLE + 0] = 0;
+breakpoint;					//kernel
+call MOD_5;

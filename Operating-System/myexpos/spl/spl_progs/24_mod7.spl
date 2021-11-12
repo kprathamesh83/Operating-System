@@ -1,0 +1,142 @@
+loadi(63,13);
+loadi(64,14);	
+loadi(65,7);
+loadi(66,8);
+loadi(22,35);
+loadi(23,36);
+loadi(2, 15);
+loadi(3, 16);
+loadi(4, 17);
+loadi(5, 18);
+loadi(16,29);
+loadi(17,30);
+loadi(83,69);
+loadi(50,63);
+loadi(51,64);
+loadi(40,53);	//Mod 0
+loadi(41,54);
+loadi(48,61);	//Mod 4
+loadi(49,62);
+loadi(8,21);	//Console interupt
+loadi(9,22);
+loadi(14,27);		//INT 6
+loadi(15,28);
+loadi(20,33);		//INT 9
+loadi(21,34);
+loadi(42,55);	//Mod 1
+loadi(43,56);
+loadi(44,57);	//Mod 2
+loadi(45,58);
+loadi(59,3);		//inode table
+loadi(60,4);
+loadi(6,19);		//disk interrupt
+loadi(7,20);
+loadi(61,2);		//disk free list
+loadi(18,31);		//fork
+loadi(19,32);
+loadi(24,37);		//interrupt 11
+loadi(25,38);
+loadi(28,41);		//interrupt 13
+loadi(29,42);
+loadi(30,43);		//interrupt 14
+loadi(31,44);		
+loadi(32,45);		//interrupt 15
+loadi(33,46);
+loadi(10,23);		//interrupt 4
+loadi(11,24);
+loadi(62,5);		//root file
+loadi(12,25);		//interrupt 5
+loadi(13,26);		
+loadi(46,59);		//Mod 3
+loadi(47,60);		
+alias counter R1;
+counter = 1;
+while(counter < 16) do
+	[PROCESS_TABLE + (counter*16) + 4] = TERMINATED;
+	counter = counter + 1;
+endwhile;
+[TERMINAL_STATUS_TABLE] = 0;
+PTBR = PAGE_TABLE_BASE + 20;
+PTLR = 10;
+[PTBR+0] = 63;
+[PTBR+1] = "0100";
+[PTBR+2] = 64;
+[PTBR+3] = "0100";
+[PTBR+4] = 78;
+[PTBR+5] = "0110";
+[PTBR+6] = 79;
+[PTBR+7] = "0110";
+[PTBR+8] = 65;
+[PTBR+9] = "0100";
+[PTBR+10] = 66;
+[PTBR+11] = "0100";
+[PTBR+12] = -1;
+[PTBR+13] = "0000";
+[PTBR+14] = -1;
+[PTBR+15] = "0000";
+[PTBR+16] = 76;
+[PTBR+17] = "0110";
+[PTBR+18] = 77;
+[PTBR+17] = "0110";
+[PROCESS_TABLE + 17] = 1;
+[PROCESS_TABLE + 19] = 1;					//user id root = 1
+[PROCESS_TABLE + 20] = CREATED;
+[PROCESS_TABLE + 27] = 80;
+[PROCESS_TABLE + 29] = 8*512;
+[PROCESS_TABLE + 28] = 0;
+[PROCESS_TABLE + 30] = PAGE_TABLE_BASE + 20;
+[PROCESS_TABLE + 31] = 10;
+[76*512] = [65*512+1];
+alias pptable R2;
+pptable = (80) * 512 + (512 - 16);		//preprocess table
+counter = 0;
+while(counter < 16) do
+	[pptable+counter] = -1;
+	counter = counter + 1;
+endwhile;
+counter = 0;
+while (counter < 32) do					//semaphore table
+	[SEMAPHORE_TABLE + 4 * counter] = -1;
+	[SEMAPHORE_TABLE + 4 * counter + 1] = 0;
+	counter = counter + 1;
+endwhile;
+counter = 0;
+while(counter < 83) do
+	[MEMORY_FREE_LIST + counter] = 1;
+	counter = counter + 1;
+endwhile;
+[MEMORY_FREE_LIST + 63] = 2;
+[MEMORY_FREE_LIST + 64] = 2;
+[SYSTEM_STATUS_TABLE + 2] = 0;
+[SYSTEM_STATUS_TABLE + 3] = 0;
+while(counter < 128) do					//count free pages
+	[MEMORY_FREE_LIST + counter] = 0;
+	[SYSTEM_STATUS_TABLE + 2] = [SYSTEM_STATUS_TABLE + 2] + 1;
+	counter = counter + 1;
+endwhile;
+[DISK_STATUS_TABLE] = 0;				//Disk free
+counter = 0;						//disk map table
+while(counter < 10) do
+	[DISK_MAP_TABLE + 10 + counter] = -1;
+	counter = counter + 1;
+endwhile;
+counter = 0;
+while (counter < 60) do									//file status table
+	[FILE_STATUS_TABLE + counter * 4] = -1;
+	[FILE_STATUS_TABLE + counter * 4 + 1] = -1;					
+	counter = counter + 1;
+endwhile;
+counter = 0;
+while (counter < 4) do									//buffer table
+	[BUFFER_TABLE + 4 * counter] = -1;
+	[BUFFER_TABLE + 4 * counter + 1] = 0;
+	[BUFFER_TABLE + 4 * counter + 2] = -1;
+	counter = counter + 1;
+endwhile;
+counter = 0;
+while (counter < MAX_OPENFILE_NUM) do
+	[OPEN_FILE_TABLE + 4 * counter] = -1;
+	[OPEN_FILE_TABLE + 4 * counter + 1] = 0;
+	counter = counter + 1;
+endwhile;
+return;
