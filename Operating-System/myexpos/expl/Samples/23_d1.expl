@@ -1,0 +1,13 @@
+int main(){
+	decl
+		int a,b,c,permission;
+		str filename;
+	enddecl
+	
+	begin
+		a = exposcall("Read", -1, filename);
+		c = exposcall("Delete", filename);
+		write (c);
+		return 0;
+	end
+}

@@ -1,0 +1,24 @@
+int main()
+{
+decl
+    str uname,password;
+    int one,temp,retval;
+enddecl
+begin
+    one = 1;
+    while (one == 1) do
+        write ("User name-");
+        read (uname);
+        write ("Password-");
+        read (password);
+        retval = exposcall("Login",uname,password);
+        if (retval == -1) then
+            write ("invalid");
+        endif;
+        if (retval == -2) then
+            write ("permission");
+        endif;
+    endwhile;
+    return 0;
+end
+}

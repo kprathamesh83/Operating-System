@@ -1,0 +1,16 @@
+
+int main()
+{
+	decl
+		str name;
+		int p, temp;
+	enddecl
+	begin
+		temp = exposcall("Write",-2,"Filename");
+		temp = exposcall("Read",-1,name);
+		temp = exposcall("Write",-2,"Permission");
+		temp = exposcall("Read",-1,p);
+		temp = exposcall("Create", name, p);
+		return 0;
+	end
+}
